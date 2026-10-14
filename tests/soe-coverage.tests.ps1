@@ -4,99 +4,78 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $procedure = Get-Content -Raw -LiteralPath (Join-Path $repositoryRoot 'docs/usp_GetSoeSyllabusCoverage.sql')
 $procedure = $procedure.Replace('CREATE OR ALTER PROCEDURE dbo.usp_GetSoeSyllabusCoverage', 'CREATE PROCEDURE #SoeCoverage')
-foreach ($tableName in @('tbl_jharkhand_acs', 'School_Profile', 'Category_ClassMapping', 'LMs_DistrictMaster', 'AcademicYearCalendarTracking', 'Tbl_SplitSyllabusTargetPercentage')) {
+foreach ($tableName in @('SplitSyllabusCompletedDetails', 'Tbl_SplitSyllabusTargetPercentage')) {
     $procedure = $procedure.Replace('dbo.' + $tableName, '#' + $tableName)
 }
 
-# Fixtures and the tested procedure are connection-local tempdb objects only.
-# No syllabus database is created, changed, or required.
-$fixtures = @'
+# The actual procedure runs against connection-local temporary fixtures only.
+$fixtures = @"
 SET NOCOUNT ON;
-CREATE TABLE #tbl_jharkhand_acs (ACS_id int, [year] int, [month] int, batchId int, subjectId int, subjectName nvarchar(200), StateSpecificType nvarchar(128), IsActive bit, DeletedOn datetime NULL);
-CREATE TABLE #School_Profile (SchoolCode nvarchar(20), StateSpecificType nvarchar(128), SchoolCategoryId int, LMS_DistrictId int);
-CREATE TABLE #Category_ClassMapping (CategoryId int, ClassId int);
-CREATE TABLE #LMs_DistrictMaster (DistrictId int, DistrictName nvarchar(200));
-CREATE TABLE #AcademicYearCalendarTracking (AC_ID int, SchoolCode nvarchar(20), IsCompleted bit);
-CREATE TABLE #Tbl_SplitSyllabusTargetPercentage (BatchId int, SubjectId int, [Year] int, [Month] int, StateSpecificType nvarchar(128), TargetPercentage decimal(9,4));
-INSERT #School_Profile VALUES (N'001',N'SOE',1,1),(N'002',N'SOE',2,2),(N'003',N'OTHER',2,1),(N'004',N'SOE',3,1);
-INSERT #Category_ClassMapping VALUES (1,1),(1,1),(2,1),(2,2);
-INSERT #LMs_DistrictMaster VALUES (1,N'Ranchi'),(2,N'Bokaro');
-INSERT #tbl_jharkhand_acs VALUES
- (1,2026,10,1,1,N'Science',N'SOE',1,NULL),
- (2,2026,10,1,1,N'Science',N'SOE',1,NULL),
- (3,2026,10,2,2,N'Mathematics',N'SOE',1,NULL),
- (4,2026,4,1,1,N'Science',N'SOE',1,NULL),
- (5,2027,1,1,1,N'Science',N'SOE',1,NULL),
- (6,2026,10,1,1,N'Science',N'SOE',0,NULL),
- (7,2026,10,1,1,N'Science',N'OTHER',1,NULL),
- (8,2026,10,1,1,N'Science',N'SOE',1,'20261001'),
- (9,2025,10,1,1,N'Science',N'SOE',1,NULL);
-INSERT #AcademicYearCalendarTracking VALUES (1,N'001',1),(1,N'001',1),(2,N'001',0),(3,N'001',1),(2,N'002',1),(3,N'002',1),(4,N'001',1),(5,N'001',1),(6,N'001',1),(7,N'003',1);
-INSERT #Tbl_SplitSyllabusTargetPercentage VALUES (1,1,2026,10,N'SOE',80),(2,2,2026,10,N'SOE',20),(1,1,2027,1,N'SOE',50);
-CREATE TABLE #Actual (TargetPercentage decimal(9,4) NULL, AchievedPercentage decimal(9,4) NULL, CompletedTopics bigint, EligibleTopics bigint, MissingTargetGroups int, CoverageBasis varchar(16), CalendarYear int, SyllabusMonth tinyint);
+CREATE TABLE #SplitSyllabusCompletedDetails (StateSpecificType varchar(50), [Year] int, [Month] int, BatchId int, SubjectName nvarchar(200), DistrictName nvarchar(200), IsActive bit, CompletedTopics int NULL, MonthTopics int NULL);
+CREATE TABLE #Tbl_SplitSyllabusTargetPercentage (StateSpecificType varchar(50), [Year] int, [Month] int, BatchId int, SubjectName nvarchar(200), TargetPercentage decimal(18,4));
+INSERT #SplitSyllabusCompletedDetails VALUES
+ ('SOE',2026,10,1,N'Science',N'Ranchi',1,1,2),
+ ('SOE',2026,10,1,N'Science',N'Bokaro',1,9,10),
+ ('SOE',2026,10,2,N'Mathematics',N'Ranchi',1,2,4),
+ ('SOE',2026,10,1,N'Science',N'Ranchi',1,1,0),
+ ('SOE',2026,10,1,N'Science',N'Ranchi',1,1,NULL),
+ ('SOE',2026,10,1,N'Science',N'Ranchi',0,100,100),
+ ('OTHER',2026,10,1,N'Science',N'Ranchi',1,100,100),
+ ('SOE',2026,9,1,N'Science',N'Ranchi',1,100,100),
+ ('SOE',2027,1,1,N'Science',N'Ranchi',1,1,4);
+INSERT #Tbl_SplitSyllabusTargetPercentage VALUES
+ ('SOE',2026,10,1,N'Science',80),
+ ('SOE',2026,10,2,N'Mathematics',20),
+ ('OTHER',2026,10,1,N'Science',100),
+ ('SOE',2027,1,1,N'Science',40);
+CREATE TABLE #Actual (TargetPercentage decimal(18,4) NULL, AchievedPercentage decimal(18,4) NULL);
 GO
-'@
+"@
 
-$assertions = @'
-TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','Monthly';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE EligibleTopics=5 AND CompletedTopics=3 AND AchievedPercentage=60 AND TargetPercentage=68)
- THROW 52000, 'Monthly weighting, eligibility, or completion deduplication failed.', 1;
-
-TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','Cumulative';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE EligibleTopics=9 AND CompletedTopics=4 AND ABS(AchievedPercentage-44.4444)<0.001 AND ABS(TargetPercentage-73.3333)<0.001)
- THROW 52000, 'Cumulative annual denominator or future-topic exclusion failed.', 1;
+$assertions = @"
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage=50 AND ABS(AchievedPercentage-63.3333)<0.001)
+ THROW 52000, 'SOE arithmetic averages or monthly/active filtering failed.', 1;
 
 TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','AnnualMonthly';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE EligibleTopics=9 AND CompletedTopics=3 AND ABS(AchievedPercentage-33.3333)<0.001)
- THROW 52000, 'Monthly contribution to the annual syllabus failed.', 1;
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10,@BatchId=1;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage=80 AND AchievedPercentage=70)
+ THROW 52000, 'Achieved must average 50 and 90, not use the weighted ratio.', 1;
 
 TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,1,N'SOE','Monthly';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE CalendarYear=2027 AND EligibleTopics=2 AND CompletedTopics=1 AND AchievedPercentage=50 AND TargetPercentage=50)
- THROW 52000, 'January academic-year rollover failed.', 1;
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10,@SubjectName=N'Science',@DistrictName=N'Ranchi';
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage=80 AND AchievedPercentage=50)
+ THROW 52000, 'Subject/district filtering or statewide target selection failed.', 1;
 
 TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','Monthly',NULL,N'Science',N'Ranchi';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE EligibleTopics=2 AND CompletedTopics=1 AND AchievedPercentage=50 AND TargetPercentage=80)
- THROW 52000, 'Subject/district filter or pending-request exclusion failed.', 1;
+INSERT #Actual EXEC #SoeCoverage @Year=2027,@Month=1;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage=40 AND AchievedPercentage=25)
+ THROW 52000, 'January calendar-year selection failed.', 1;
 
 TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','Monthly',99;
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE EligibleTopics=0 AND CompletedTopics=0 AND TargetPercentage IS NULL AND AchievedPercentage IS NULL)
- THROW 52000, 'Empty-scope N/A handling failed.', 1;
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10,@BatchId=99;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage IS NULL AND AchievedPercentage IS NULL)
+ THROW 52000, 'Empty scopes must return two null percentages.', 1;
 
-DELETE #Tbl_SplitSyllabusTargetPercentage WHERE BatchId=2;
+INSERT #SplitSyllabusCompletedDetails VALUES ('SOE',2026,10,1,N'Science',N'Ranchi',1,0,2);
 TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','Monthly';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage IS NULL AND MissingTargetGroups=1 AND AchievedPercentage=60)
- THROW 52000, 'Missing target must not produce a partial weighted percentage.', 1;
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10,@BatchId=1;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE ABS(AchievedPercentage-46.6667)<0.001)
+ THROW 52000, 'A zero-completion row with topics must contribute zero to AVG.', 1;
 
-UPDATE #Tbl_SplitSyllabusTargetPercentage SET TargetPercentage=150 WHERE [Year]=2026;
+INSERT #Tbl_SplitSyllabusTargetPercentage VALUES ('SOE',2026,10,1,N'Science',100);
 TRUNCATE TABLE #Actual;
-INSERT #Actual EXEC #SoeCoverage 2026,10,N'SOE','Monthly';
-IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage IS NULL AND MissingTargetGroups=2)
- THROW 52000, 'Invalid target validation failed.', 1;
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE ABS(TargetPercentage-66.6667)<0.001)
+ THROW 52000, 'Target rows must be averaged independently without school join fan-out.', 1;
 
-INSERT #Tbl_SplitSyllabusTargetPercentage VALUES (1,1,2026,10,N'SOE',80);
-BEGIN TRY
- EXEC #SoeCoverage 2026,10,N'SOE','Monthly';
- THROW 52000, 'Duplicate targets were accepted.', 1;
-END TRY
-BEGIN CATCH
- IF ERROR_NUMBER()<>51001 THROW;
-END CATCH;
-BEGIN TRY
- EXEC #SoeCoverage 2026,13,N'SOE','Monthly';
- THROW 52000, 'Invalid month was accepted.', 1;
-END TRY
-BEGIN CATCH
- IF ERROR_NUMBER()<>51000 THROW;
-END CATCH;
-PRINT 'PASS: monthly/cumulative coverage, weighting, topic deduplication, school-class eligibility, inactive/deleted exclusions, January rollover, filters, empty scopes, missing/invalid/duplicate targets, and input validation.';
-'@
+DELETE #Tbl_SplitSyllabusTargetPercentage WHERE StateSpecificType='SOE' AND [Year]=2026;
+TRUNCATE TABLE #Actual;
+INSERT #Actual EXEC #SoeCoverage @Year=2026,@Month=10;
+IF NOT EXISTS(SELECT 1 FROM #Actual WHERE TargetPercentage IS NULL AND AchievedPercentage IS NOT NULL)
+ THROW 52000, 'Missing target must not remove achieved data.', 1;
+PRINT 'PASS: exactly two results, arithmetic averages, independent targets, active/month/cohort filters, zero denominators, zero completions, optional filters, January year, and empty scopes.';
+"@
 
-($fixtures + "`r`n" + $procedure + "`r`n" + $assertions) | sqlcmd -S $ServerInstance -E -d tempdb -l 5 -b
+($fixtures + [Environment]::NewLine + $procedure + [Environment]::NewLine + $assertions) | sqlcmd -S $ServerInstance -E -d tempdb -l 5 -b
 if ($LASTEXITCODE -ne 0) { throw 'SOE stored procedure fixture tests failed.' }

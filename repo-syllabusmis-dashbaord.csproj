@@ -122,8 +122,6 @@
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\SplitSyllabusController.cs" />
-    <Compile Include="Models\SoeCoverageResult.cs" />
-    <Compile Include="Services\SoeCoverageService.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>

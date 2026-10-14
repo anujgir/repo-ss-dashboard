@@ -142,17 +142,16 @@
                 var target = data.TargetPercentage, achieved = data.AchievedPercentage;
                 write('soe-target', percent(target)); write('soe-achieved', percent(achieved));
                 write('soe-gap', target === null || achieved === null ? 'N/A' : Math.max(0, target - achieved).toFixed(1) + ' pp');
-                var cumulative = data.CoverageBasis === 'Cumulative';
-                var annualMonthly = data.CoverageBasis === 'AnnualMonthly';
-                write('soe-goal-label', cumulative ? 'Cumulative goal' : annualMonthly ? 'Monthly contribution goal' : 'Monthly goal');
-                write('soe-basis-label', cumulative ? 'Academic year to selected month' : annualMonthly ? 'Monthly share of annual syllabus' : 'Selected-month basis');
+                write('soe-goal-label', 'Average monthly target');
+                write('soe-basis-label', 'Average monthly coverage');
                 byId('soe-progress').style.width = (achieved || 0) + '%';
                 byId('soe-target-marker').style.left = (target || 0) + '%';
                 byId('soe-target-marker').hidden = target === null;
                 byId('soe-card').setAttribute('aria-busy', 'false');
-                write('soe-data-status', data.EligibleTopics === 0 ? 'No eligible SOE topics found for this scope.' : data.MissingTargetGroups > 0
-                    ? 'Achievement loaded. Targets are missing or invalid for ' + data.MissingTargetGroups + ' class/subject groups.'
-                    : 'SQL Server coverage · ' + monthLabel(data.SyllabusMonth) + ' · Completed topics require IsCompleted = 1.');
+                write('soe-data-status', target === null && achieved === null ? 'No SOE coverage data found for this scope.'
+                    : target === null ? 'Average achievement loaded. No configured target found for this scope.'
+                    : achieved === null ? 'Average target loaded. No active summary rows with monthly topics found.'
+                    : 'SOE monthly averages loaded from the reporting tables.');
             })
             .catch(function (error) {
                 if (requestVersion !== soeRequestVersion) { return; }
