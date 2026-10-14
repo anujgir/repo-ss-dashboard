@@ -1,6 +1,6 @@
 # repo-ss-dashboard
 
-Starting repository for a dashboard project. The repository currently contains contributor documentation; application development has not started.
+Starting repository for a dashboard project. The repository currently contains contributor documentation and six Codex agent definitions; application development has not started.
 
 ## Project Status
 
@@ -21,9 +21,14 @@ Read [AGENTS.md](AGENTS.md) for contribution guidelines. Installation, developme
 
 ```text
 repo-ss-dashboard/
+├── .codex/agents/ # C#, testing, SQL Server, PM, code review, and security agents
 ├── AGENTS.md   # Contributor guidelines
 └── README.md   # Project overview and setup information
 ```
+
+## Development Agents
+
+Six project-scoped Codex roles support C# development, testing, SQL Server database management and query optimization, project management, code review, and security review. See the [agent guide](.codex/agents/README.md) for responsibilities, usage examples, and coordination rules.
 
 ## Contributing
 
