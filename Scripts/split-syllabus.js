@@ -14,6 +14,8 @@
     var currentRows = [];
     var currentDistricts = [];
     var selectedDistrict = null;
+    var soeRequestVersion = 0;
+    var soeAbortController = null;
     var integerFormat = new Intl.NumberFormat('en-IN');
     var form = document.getElementById('dashboard-filters');
     if (!form) { return; }
@@ -100,6 +102,69 @@
         byId(cohort + '-target-marker').hidden = totals.target === null;
     }
 
+    function clearSoeCoverage(message, loading) {
+        write('soe-target', 'N/A'); write('soe-achieved', 'N/A'); write('soe-gap', 'N/A');
+        write('soe-topics', loading ? 'Loading coverage' : 'Coverage unavailable');
+        write('soe-goal-label', 'Configured goal'); write('soe-basis-label', 'SQL Server');
+        write('soe-data-status', message);
+        byId('soe-progress').style.width = '0%';
+        byId('soe-target-marker').hidden = true;
+        byId('soe-card').setAttribute('aria-busy', loading ? 'true' : 'false');
+    }
+
+    function loadSoeCoverage() {
+        var requestVersion = ++soeRequestVersion;
+        if (soeAbortController) { soeAbortController.abort(); }
+        if (currentScope.cohort === 'other') {
+            clearSoeCoverage('SOE schools are excluded by the selected cohort filter.', false);
+            write('soe-topics', 'Cohort excluded by selected filter');
+            return;
+        }
+        clearSoeCoverage('Loading SOE coverage from the server.', true);
+        soeAbortController = new AbortController();
+        var controller = soeAbortController;
+        var query = new URLSearchParams({ academicYearStart: byId('academic-year').value, month: currentScope.month });
+        if (currentScope.grade !== 'all') { query.set('batchId', currentScope.grade); }
+        if (currentScope.subject !== 'all') { query.set('subjectName', selectedLabel('subject-filter')); }
+        if (currentScope.district !== 'all') { query.set('districtName', currentScope.district); }
+        var endpoint = byId('overview').getAttribute('data-soe-coverage-url');
+        var timeout = window.setTimeout(function () { controller.abort(); }, 35000);
+        fetch(endpoint + '?' + query.toString(), { method: 'GET', credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+            headers: { Accept: 'application/json' } })
+            .then(function (response) {
+                return response.json().catch(function () {
+                    throw new Error('SOE coverage returned an unexpected response. Please retry.');
+                }).then(function (payload) {
+                    if (!response.ok || !payload || !payload.success || !payload.data) { throw new Error(payload && payload.message || 'SOE coverage could not be loaded.'); }
+                    return payload.data;
+                });
+            })
+            .then(function (data) {
+                if (requestVersion !== soeRequestVersion) { return; }
+                var target = data.TargetPercentage, achieved = data.AchievedPercentage;
+                write('soe-target', percent(target)); write('soe-achieved', percent(achieved));
+                write('soe-gap', target === null || achieved === null ? 'N/A' : Math.max(0, target - achieved).toFixed(1) + ' pp');
+                write('soe-topics', number(data.CompletedTopics) + ' / ' + number(data.EligibleTopics) + ' eligible school-topics approved');
+                var cumulative = data.CoverageBasis === 'Cumulative';
+                var annualMonthly = data.CoverageBasis === 'AnnualMonthly';
+                write('soe-goal-label', cumulative ? 'Cumulative goal' : annualMonthly ? 'Monthly contribution goal' : 'Monthly goal');
+                write('soe-basis-label', cumulative ? 'Academic year to selected month' : annualMonthly ? 'Monthly share of annual syllabus' : 'Selected-month basis');
+                byId('soe-progress').style.width = (achieved || 0) + '%';
+                byId('soe-target-marker').style.left = (target || 0) + '%';
+                byId('soe-target-marker').hidden = target === null;
+                byId('soe-card').setAttribute('aria-busy', 'false');
+                write('soe-data-status', data.EligibleTopics === 0 ? 'No eligible SOE topics found for this scope.' : data.MissingTargetGroups > 0
+                    ? 'Achievement loaded. Targets are missing or invalid for ' + data.MissingTargetGroups + ' class/subject groups.'
+                    : 'SQL Server coverage · ' + monthLabel(data.SyllabusMonth) + ' · Completed topics require IsCompleted = 1.');
+            })
+            .catch(function (error) {
+                if (requestVersion !== soeRequestVersion) { return; }
+                clearSoeCoverage(error.name === 'AbortError' ? 'SOE coverage request timed out. Please apply filters to retry.'
+                    : error.message === 'Failed to fetch' ? 'SOE coverage could not be reached. Please retry.' : error.message, false);
+            })
+            .finally(function () { window.clearTimeout(timeout); });
+    }
+
     function updateMetrics() {
         var totals = summarize(currentRows);
         var blocks = grouped(currentRows, 'block');
@@ -130,7 +195,6 @@
         write('approved-topics-total', number(totals.completed) + ' sample topics approved in ' + monthLabel(currentScope.month));
         var behind = currentDistricts.filter(function (district) { return district.gap > 0; }).length;
         write('insight-text', startedDistricts + ' of ' + currentDistricts.length + ' districts have started. ' + behind + ' are below the sample monthly target; ' + number(totals.teachers - totals.teachersStarted) + ' sample teachers have not started.');
-        updateCohort('soe');
         updateCohort('other');
     }
 
@@ -279,6 +343,7 @@
         write('period-label', monthLabel(currentScope.month));
         write('scope-label', [monthLabel(currentScope.month), selectedLabel('class-filter'), selectedLabel('subject-filter'), selectedLabel('cohort-filter'), selectedLabel('district-filter')].join(' · '));
         updateMetrics(); renderDistrictChart(); renderReport(); renderMonthlyChart();
+        loadSoeCoverage();
         if (currentScope.district !== 'all') { showBlocks(currentScope.district, false); }
         else if (selectedDistrict && currentDistricts.some(function (district) { return district.name === selectedDistrict; })) { showBlocks(selectedDistrict, false); }
         else { byId('block-panel').hidden = true; }

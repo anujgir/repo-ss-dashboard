@@ -122,6 +122,8 @@
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\SplitSyllabusController.cs" />
+    <Compile Include="Models\SoeCoverageResult.cs" />
+    <Compile Include="Services\SoeCoverageService.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
@@ -151,6 +153,7 @@
     <Content Include="Scripts\split-syllabus.js" />
     <Content Include="docs\split-syllabus-prd.html" />
     <Content Include="docs\split-syllabus-domain.md" />
+    <None Include="docs\usp_GetSoeSyllabusCoverage.sql" />
     <Content Include="Scripts\bootstrap.bundle.js" />
     <Content Include="Scripts\bootstrap.bundle.min.js" />
     <Content Include="Scripts\bootstrap.esm.js" />
