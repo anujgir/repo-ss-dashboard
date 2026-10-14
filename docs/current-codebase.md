@@ -20,10 +20,16 @@ Paths below are relative to the application root. `Global.asax.cs` registers are
 
 `Views/Home/*.cshtml` contains starter pages. `Views/_ViewStart.cshtml` selects `Views/Shared/_Layout.cshtml`, which supplies navigation, footer, and bundle rendering. `App_Start/BundleConfig.cs` defines jQuery, validation, Modernizr, Bootstrap, and CSS bundles. `Content/Site.css` contains custom styles; Bootstrap and jQuery assets are vendor files managed through NuGet.
 
+## Split Syllabus Design Prototype
+
+`/SplitSyllabus/Index` is served by `Controllers/SplitSyllabusController.cs`, whose only action returns its view. `Views/SplitSyllabus/Index.cshtml` uses `Views/Shared/_SplitSyllabusLayout.cshtml`, local Bootstrap, `Content/split-syllabus.css`, and `Scripts/split-syllabus.js`. The dashboard has cohort target/achieved cards, participation counts, all-district comparison, district-to-block drilldown, sample filters, an approval snapshot, monthly trend, and sample CSV export.
+
+All figures are illustrative browser fixtures. No SQL queries, database connection, backend metric logic, or approval mutations are implemented. Read [the product PRD](split-syllabus-prd.html) and [the owner's full schema contract](split-syllabus-domain.md) before feature work. The exact SOE value, percentage basis, teacher-school mapping, and reporting join grains remain unresolved for live integration. The owner will instruct the SQL/controller phase separately.
+
 ## Data, Tests, and Security Baseline
 
 - `Models/` and `App_Data/` are declared as folders but contain no source implementation or database files.
-- No SQL scripts, migrations, ORM, repository layer, active connection strings, or SQL Server integration exists. Commented transform examples in `Web.Debug.config` and `Web.Release.config` are not configured databases.
+- The owner has supplied the SQL Server domain schema, recorded in `docs/split-syllabus-domain.md`; no SQL scripts, migrations, ORM, repository layer, active connection strings, or SQL Server integration exists. Commented transform examples in `Web.Debug.config` and `Web.Release.config` are not configured databases.
 - No test project, test framework, coverage requirement, or CI pipeline exists. Build success does not establish test coverage or browser behavior.
 - No application authentication or authorization rules are implemented. Current pages display public template content; establish protection requirements before adding sensitive features.
 - `FilterConfig.cs` registers `HandleErrorAttribute`. `Web.config` enables compilation debugging; the Release publish transform removes that attribute. A plain Release build alone does not demonstrate safe deployment configuration.

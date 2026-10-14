@@ -4,7 +4,13 @@ Dashboard project starting from a classic ASP.NET MVC 5 application on .NET Fram
 
 ## Project Status
 
-The application currently contains the standard Home, About, and Contact pages. Dashboard business features, database integration, authentication, automated tests, and CI have not been implemented yet. Dependencies include MVC 5.2.9, Razor 3.2.9, Bootstrap 5.2.3, and jQuery 3.7.0, managed through `packages.config`.
+The application contains the standard Home, About, and Contact pages and a Split Syllabus dashboard design prototype at `/SplitSyllabus/Index`. The prototype uses illustrative data, normal HTML, local Bootstrap, CSS, and necessary vanilla JavaScript. Live database integration, authentication, automated test projects, and CI have not been implemented yet. Dependencies include MVC 5.2.9, Razor 3.2.9, Bootstrap 5.2.3, and jQuery 3.7.0, managed through `packages.config`.
+
+## Split Syllabus Dashboard
+
+Open `/SplitSyllabus/Index` after starting IIS Express, or use the Split Syllabus link on the Home page. The view includes a responsive sidebar, SOE/non-SOE target and achieved cards, teacher/school/geography participation, district and block charts, an approval summary, monthly trend, filters, and sample CSV export. Selecting a district name opens its block chart below.
+
+Read the [browser-readable PRD](docs/split-syllabus-prd.html) and [supplied SQL Server schema contract](docs/split-syllabus-domain.md). The new controller only returns the view; SQL queries and controller data logic are reserved for the owner's next implementation step. Every displayed count and percentage is sample data.
 
 ## Getting Started
 
