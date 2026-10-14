@@ -104,7 +104,6 @@
 
     function clearSoeCoverage(message, loading) {
         write('soe-target', 'N/A'); write('soe-achieved', 'N/A'); write('soe-gap', 'N/A');
-        write('soe-topics', loading ? 'Loading coverage' : 'Coverage unavailable');
         write('soe-goal-label', 'Configured goal'); write('soe-basis-label', 'SQL Server');
         write('soe-data-status', message);
         byId('soe-progress').style.width = '0%';
@@ -117,7 +116,6 @@
         if (soeAbortController) { soeAbortController.abort(); }
         if (currentScope.cohort === 'other') {
             clearSoeCoverage('SOE schools are excluded by the selected cohort filter.', false);
-            write('soe-topics', 'Cohort excluded by selected filter');
             return;
         }
         clearSoeCoverage('Loading SOE coverage from the server.', true);
@@ -144,7 +142,6 @@
                 var target = data.TargetPercentage, achieved = data.AchievedPercentage;
                 write('soe-target', percent(target)); write('soe-achieved', percent(achieved));
                 write('soe-gap', target === null || achieved === null ? 'N/A' : Math.max(0, target - achieved).toFixed(1) + ' pp');
-                write('soe-topics', number(data.CompletedTopics) + ' / ' + number(data.EligibleTopics) + ' eligible school-topics approved');
                 var cumulative = data.CoverageBasis === 'Cumulative';
                 var annualMonthly = data.CoverageBasis === 'AnnualMonthly';
                 write('soe-goal-label', cumulative ? 'Cumulative goal' : annualMonthly ? 'Monthly contribution goal' : 'Monthly goal');
