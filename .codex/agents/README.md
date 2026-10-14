@@ -4,6 +4,8 @@ These six project-scoped Codex agent definitions support dashboard development. 
 
 All six roles read the [current codebase guide](../../docs/current-codebase.md). Their instructions are tailored to the existing ASP.NET MVC 5/.NET Framework 4.7.2 application, its actual paths, NuGet/MSBuild workflow, and current gaps. This is repository instruction tuning, not model fine-tuning.
 
+For Split Syllabus work, all roles also read the [supplied schema and domain contract](../../docs/split-syllabus-domain.md) and [browser-readable PRD](../../docs/split-syllabus-prd.html). Step 1 is a sample-data view prototype; the owner will separately authorize live SQL queries and controller logic in Step 2.
+
 | Agent name | Responsibility |
 | --- | --- |
 | `csharp_developer` | C#/.NET implementation, APIs, services, and data access |
