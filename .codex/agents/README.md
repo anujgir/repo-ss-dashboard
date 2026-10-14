@@ -2,6 +2,8 @@
 
 These six project-scoped Codex agent definitions support dashboard development. They define reusable roles; creating the files does not start background workers, scaffold an application, or connect to SQL Server.
 
+All six roles read the [current codebase guide](../../docs/current-codebase.md). Their instructions are tailored to the existing ASP.NET MVC 5/.NET Framework 4.7.2 application, its actual paths, NuGet/MSBuild workflow, and current gaps. This is repository instruction tuning, not model fine-tuning.
+
 | Agent name | Responsibility |
 | --- | --- |
 | `csharp_developer` | C#/.NET implementation, APIs, services, and data access |
@@ -25,7 +27,7 @@ Use sql_server_specialist to analyze this query and propose a measured optimizat
 Delegate this diff to code_reviewer and security_reviewer; collect both reports.
 ```
 
-Supply the relevant requirements, review base, or query and sanitized execution-plan evidence. SQL Server tasks require a separately configured, authorized connection if execution is needed. The repository currently has no application or database setup.
+Supply the relevant requirements, review base, or query and sanitized execution-plan evidence. SQL Server tasks require a separately configured, authorized connection if execution is needed. The MVC application has no database integration or automated test suite yet.
 
 ## Coordination
 

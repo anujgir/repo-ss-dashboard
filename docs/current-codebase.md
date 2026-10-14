@@ -1,0 +1,49 @@
+# Current Codebase Guide
+
+Application snapshot inspected on 2026-10-14. Every repository agent should read this guide and verify the relevant source because the snapshot will age. The original root `AGENTS.md` predates the application import and remains preserved; its description of an empty repository is historical.
+
+## Stack and Paths
+
+- Solution: `repo-syllabusmis-dashbaord.sln` at the repository root.
+- Application root: the repository root; `Controllers/`, `Views/`, and `App_Start/` are directly beneath it.
+- Project: `repo-syllabusmis-dashbaord.csproj` at the repository root, a classic, non-SDK ASP.NET web application targeting .NET Framework 4.7.2.
+- Framework: ASP.NET MVC 5.2.9 (`System.Web.Mvc`) and Razor/WebPages 3.2.9, hosted through IIS Express during local development.
+- Namespace: `repo_syllabusmis_dashbaord`. Preserve the existing spelling in paths and namespaces unless a coordinated rename is requested.
+- Dependencies: root `packages.config`; restored packages belong in root `packages/`, as required by project hint paths and imports. Bootstrap 5.2.3, jQuery 3.7.0, jQuery Validation 1.19.5, Modernizr 2.8.3, Newtonsoft.Json 13.0.3, and CodeDom compiler provider 2.0.1 are pinned there.
+- No SDK-style project, ASP.NET Core middleware, npm workflow, formatter, or linter is configured.
+
+## Request and Rendering Flow
+
+Paths below are relative to the application root. `Global.asax.cs` registers areas, filters, routes, and bundles during `Application_Start`.
+
+`App_Start/RouteConfig.cs` maps `{controller}/{action}/{id}` to `Home/Index` by default. `Controllers/HomeController.cs` has three parameterless actions returning views: `Index`, `About`, and `Contact`. About and Contact populate `ViewBag.Message` with template text. There are no POST actions or implemented dashboard business features.
+
+`Views/Home/*.cshtml` contains starter pages. `Views/_ViewStart.cshtml` selects `Views/Shared/_Layout.cshtml`, which supplies navigation, footer, and bundle rendering. `App_Start/BundleConfig.cs` defines jQuery, validation, Modernizr, Bootstrap, and CSS bundles. `Content/Site.css` contains custom styles; Bootstrap and jQuery assets are vendor files managed through NuGet.
+
+## Data, Tests, and Security Baseline
+
+- `Models/` and `App_Data/` are declared as folders but contain no source implementation or database files.
+- No SQL scripts, migrations, ORM, repository layer, active connection strings, or SQL Server integration exists. Commented transform examples in `Web.Debug.config` and `Web.Release.config` are not configured databases.
+- No test project, test framework, coverage requirement, or CI pipeline exists. Build success does not establish test coverage or browser behavior.
+- No application authentication or authorization rules are implemented. Current pages display public template content; establish protection requirements before adding sensitive features.
+- `FilterConfig.cs` registers `HandleErrorAttribute`. `Web.config` enables compilation debugging; the Release publish transform removes that attribute. A plain Release build alone does not demonstrate safe deployment configuration.
+- `Views/Web.config` configures Razor and blocks direct view requests. Preserve those protections.
+
+## Development and Verification
+
+Use Windows and Visual Studio 2022 with the ASP.NET and web development workload and .NET Framework 4.7.2 targeting pack. Run these commands from the repository root in Visual Studio Developer PowerShell, with NuGet CLI installed:
+
+```powershell
+nuget restore .\repo-syllabusmis-dashbaord.sln
+msbuild .\repo-syllabusmis-dashbaord.sln /t:Build /p:Configuration=Debug /p:MvcBuildViews=true
+msbuild .\repo-syllabusmis-dashbaord.sln /t:Build /p:Configuration=Release /p:MvcBuildViews=true
+git diff --check
+```
+
+The view-build option enables Razor compilation, disabled by default in the project. Open the solution in Visual Studio and start IIS Express to check `/`, `/Home/About`, and `/Home/Contact`, navigation, responsive layout, and browser console/network errors. The project specifies `https://localhost:44343/`; use the actual launch URL if local settings differ. No automated test command is configured yet.
+
+## Editing and Handoffs
+
+Follow four-space C# indentation and existing MVC conventions: `NameController`, `ActionResult`, and matching Razor views. The project explicitly lists compile and content items; register new files in the `.csproj`. Keep package versions, hint paths, binding redirects, and bundled vendor assets consistent when upgrading dependencies. Do not introduce modern language features or ASP.NET Core APIs without checking compatibility.
+
+PM defines requirements; the C# developer owns application changes; the tester owns test work; the SQL Server specialist owns database work when introduced. Reviewers return evidence and practical fixes. Coordinate shared-file edits, record actual validation, and update this guide when architecture changes.
