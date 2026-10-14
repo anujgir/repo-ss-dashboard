@@ -1,54 +1,26 @@
-# SOE Coverage Setup
+# SOE Monthly Coverage
 
-The SOE card calls `GET /SplitSyllabus/SoeCoverage`. Its controller validates filters and calls `Services/SoeCoverageService.cs`, which executes `dbo.usp_GetSoeSyllabusCoverage` with typed SQL parameters. `Index()` continues to load the view. Other dashboard metrics remain sample data.
+The dashboard calls GET /SplitSyllabus/SoeCoverage. The controller directly creates a SqlConnection from ConfigurationManager.ConnectionStrings["cs"].ConnectionString, a stored-procedure SqlCommand with typed parameters, and a SqlDataAdapter that fills a DataTable. It returns only TargetPercentage and AchievedPercentage in the dashboard JSON data object. The former service, DTO, environment-variable settings, and calculation-basis selection have been removed at the owner's request.
 
-## Database Deployment
+## Connection and Deployment
 
-The procedure definition is [usp_GetSoeSyllabusCoverage.sql](usp_GetSoeSyllabusCoverage.sql). Open it in SSMS, select the correct syllabus database, verify schema names/types, and execute it there. The script uses `CREATE OR ALTER`, supported by [SQL Server 2016 SP1 and later](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-procedure-transact-sql). It has not been deployed to the owner's database.
+Replace the dummy connection string named cs in Web.config with your actual SQL Server connection. The committed value uses YOUR_SQL_SERVER and YOUR_DATABASE; it is not a live connection. Keep real credentials out of Git.
 
-Verify that `year` and `month` are calendar numbers, `ACS_id` identifies one master topic, school codes uniquely identify consistent school profiles, and `Category_ClassMapping.ClassId` matches `tbl_jharkhand_acs.batchId`. Parameter types and lengths must match the actual schema for production performance. The current class selector uses numeric class values as batch IDs, and subject/district selectors send their displayed names; these values must match database identifiers/names before using filtered live results. Actual types, mappings, and the target basis were not supplied.
+Run [usp_GetSoeSyllabusCoverage.sql](usp_GetSoeSyllabusCoverage.sql) in the correct syllabus database. It defines dbo.usp_GetSoeSyllabusCoverage using CREATE OR ALTER. Verify actual schema names and parameter types before deployment. No real database deployment was performed.
 
-## Required Settings
+## Requested Calculation
 
-Set these environment variables for the application process, then restart IIS Express or the IIS application pool:
+- AchievedPercentage = the arithmetic average of CompletedTopics * 100.0 / MonthTopics for active SOE rows in SplitSyllabusCompletedDetails for the selected calendar year/month.
+- Rows with MonthTopics = 0 or NULL are excluded. A row with zero completed topics and a positive monthly topic count contributes 0%.
+- TargetPercentage = the arithmetic average of matching SOE TargetPercentage values in Tbl_SplitSyllabusTargetPercentage.
+- The two averages are calculated independently. Target records are not multiplied by joining them to school reporting rows.
+- No topic weighting, raw-topic/tracking joins, annual denominator, or cumulative calculation is used for this SOE card.
+- The summary table is assumed to contain the correct month-wise school/class/subject reporting rows. Its refresh and row grain determine the result.
 
-| Environment variable | Required value |
-| --- | --- |
-| `SPLIT_SYLLABUS_SQL_CONNECTION_STRING` | Connection string for the actual syllabus database; keep credentials outside Git. |
-| `SPLIT_SYLLABUS_SOE_STATE_SPECIFIC_TYPE` | Exact SOE value used by master topics, school profiles, and target records. |
-| `SPLIT_SYLLABUS_COVERAGE_BASIS` | `Monthly`, `AnnualMonthly`, or `Cumulative`, matching the meaning of stored TargetPercentage. |
+The procedure accepts Year, Month, StateSpecificType (SOE), and optional BatchId, SubjectName, and DistrictName. Class and subject filters apply to both tables. District applies only to achieved data, because the target table has no district column. January through March in academic year 2026-27 use calendar year 2027.
 
-Alternatively, configure a local/deployment `connectionStrings` entry named `SplitSyllabus`, and set `SplitSyllabus.SoeStateSpecificType` and `SplitSyllabus.CoverageBasis` in `Web.config`. Environment values take precedence. The committed cohort/basis settings are deliberately empty; no SOE identifier, database, or percentage basis is guessed. Never commit real credentials.
+## Dashboard and Tests
 
-The database identity needs EXECUTE access to the procedure, with access to its underlying objects determined by SQL Server ownership and permissions. The endpoint returns aggregate coverage only. Existing authentication is not implemented; configure server-side access control before exposing private production data.
+The SOE card displays the two returned averages, a gap, and a percentage bar. It supports null values as N/A, and does not show the removed topic-count text. Other metrics remain illustrative. A placeholder database connection can cause a server error; the browser clears the card and shows an unavailable response.
 
-## Calculation
-
-The procedure reads `tbl_jharkhand_acs`, `School_Profile`, `Category_ClassMapping`, `AcademicYearCalendarTracking`, `LMs_DistrictMaster`, and `Tbl_SplitSyllabusTargetPercentage`. It uses source tracking rather than the reporting summary to avoid summary-refresh lag. It does not change any base-table records.
-
-- Master topics must be active, not deleted, in the configured SOE cohort, and eligible for the school's category/class.
-- A completed topic is a distinct `(SchoolCode, ACS_id)` pair with at least one tracking record having `IsCompleted = 1`. Multiple teachers or duplicate approvals do not multiply completion.
-- Monthly achievement is approved selected-month school-topics divided by eligible selected-month school-topics, multiplied by 100.
-- AnnualMonthly achievement is approved selected-month school-topics divided by all eligible academic-year school-topics, multiplied by 100. This supports targets expressed as that month's contribution to the annual syllabus.
-- Cumulative achievement is approved school-topics scheduled through the selected month divided by all eligible academic-year school-topics, multiplied by 100. Future scheduled topics contribute only to the annual denominator.
-- All three bases use the selected calendar month/year's configured target, weighted by the corresponding eligible topic denominator for each class/subject group. The configured target must use that same basis; the procedure cannot infer its semantics.
-- January through March map to the following calendar year. Historical scope uses syllabus month, not a reconstruction of completion as of an ApprovalDate cutoff.
-- Missing or out-of-range targets produce a null target with a missing-group count. Duplicate targets produce an explicit error. Zero eligible topics produce N/A, not an artificial zero percentage.
-
-## Response and Dashboard States
-
-Successful responses have `success: true` and `data` fields: `TargetPercentage`, `AchievedPercentage`, `CompletedTopics`, `EligibleTopics`, `MissingTargetGroups`, `CoverageBasis`, `CalendarYear`, and `SyllabusMonth`. Invalid filters return HTTP 400. Missing configuration, unavailable database/procedure, or duplicate targets return HTTP 503 with a safe message; connection strings and SQL error details are not returned.
-
-The browser fetches coverage on load and when filters are applied. It clears old values during requests, ignores stale responses, and shows unavailable data as N/A without sample fallback. Excluding SOE through the cohort filter prevents the request entirely. Coverage labels switch to the configured monthly or cumulative basis.
-
-## Verification
-
-Run isolated stored-procedure fixture tests against a local SQL Server with Windows authentication:
-
-```powershell
-.\tests\soe-coverage.tests.ps1 -ServerInstance '.\SQLEXPRESS'
-```
-
-The harness reads the actual procedure source and substitutes connection-local temporary tables/procedure in `tempdb`; it creates no application database or permanent objects. Verified on local SQL Server 17: monthly/cumulative arithmetic, weighting, school-class eligibility, duplicate completions, inactive/deleted topics, January rollover, filters, zero topics, missing/invalid/duplicate targets, and invalid months.
-
-Browser checks cover the real unconfigured endpoint and mocked success/error responses, filters, and missing targets. Live deployment and values remain unverified until the owner supplies the connection, SOE identifier, percentage basis, and actual schema mappings. This procedure is not a performance benchmark; inspect plans and data distribution before adding production indexes.
+Run ./tests/soe-coverage.tests.ps1 against local SQL Server to verify the actual procedure using temporary fixtures. Tests distinguish arithmetic averaging from a weighted ratio and check independent targets, scope filters, null/zero denominators, zero completions, empty results, and January year selection.

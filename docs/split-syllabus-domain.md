@@ -8,7 +8,7 @@ Use the existing ASP.NET MVC 5 / .NET Framework 4.7.2 application, C#, Razor-gen
 
 The original Step 1 delivered a view prototype with an `Index` action returning `View()`. `Views/SplitSyllabus/Index.cshtml` renders the dashboard using a dedicated layout. That first phase used browser-local sample data. The subsequent authorized SOE-only integration is described below; the remaining backend features still await instruction.
 
-The owner has now authorized the SOE coverage portion of Step 2. `SoeCoverage` is an asynchronous MVC GET action backed by `SoeCoverageService` and `docs/usp_GetSoeSyllabusCoverage.sql`. The SOE card requests that endpoint and does not fall back to sample values. Other cards, charts, and participation metrics remain illustrative. Read [SOE coverage setup](soe-coverage-setup.md) for required configuration and supported monthly/cumulative calculations. Deployment and live data verification require the owner's actual connection and schema settings; approval writes and other backend metrics are not authorized by this step.
+The owner has authorized and revised the SOE portion of Step 2. SoeCoverage directly fills a DataTable using SqlDataAdapter and the cs connection string. docs/usp_GetSoeSyllabusCoverage.sql now returns only the average target and average achieved percentages from the two reporting tables. The achieved metric is the arithmetic mean of monthly CompletedTopics / MonthTopics percentages, not a weighted ratio or raw-tracking calculation. Other metrics remain illustrative. Read [SOE coverage setup](soe-coverage-setup.md) for connection and deployment details.
 
 ## Supplied Tables and Columns
 
@@ -77,9 +77,9 @@ Academic year: 2026-04-01 inclusive to 2027-04-01 exclusive, displayed as 2026-2
 | Delayed items | Define due-date basis and approval status before using DelayDays or [Due Date]. |
 | Summary freshness | Latest verified UpdatedOn plus explicit refresh-lag handling. |
 
-Use weighted aggregation, never a simple average of district/school/class percentages. For a monthly completion basis, proposed achieved = `100 × SUM(CompletedTopics) / SUM(MonthTopics)` across eligible school-class-subject summaries, with zero denominator shown as N/A. Proposed weighted target = `SUM(TargetPercentage × eligible MonthTopics) / SUM(eligible MonthTopics)` after validated target joins. Prototype sample figures use this monthly basis only for design consistency; the owner must confirm the production basis.
+Current owner requirement for SOE: AchievedPercentage = AVG(100 * CompletedTopics / MonthTopics) over active monthly SOE reporting rows, excluding zero/null monthly denominators. TargetPercentage = AVG(TargetPercentage) over matching SOE target rows. These are simple arithmetic averages calculated independently. Class/subject/year/month filters apply to both; district applies only to achieved because the target table has no district key. Other future metrics require their own agreed aggregation rules.
 
-If target basis is cumulative annual progress instead, calculate both values through the selected month and deduplicate annual topic denominators per school/class/subject/cohort. Do not mix monthly numerators with cumulative targets. Use [Due Date], [RAIL Date], and [School Code] with bracketed SQL identifiers. No SQL is executed in Step 1.
+The current SOE method does not calculate annual/cumulative coverage, query raw topic/tracking rows, or return topic counts. The supplied raw-data workflow remains relevant to maintaining reporting summaries and future features. Use bracketed SQL identifiers for columns with spaces.
 
 ## Open Decisions Before Step 2
 
