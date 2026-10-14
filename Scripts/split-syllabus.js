@@ -193,10 +193,6 @@
         write('approved-topics-total', number(totals.completed) + ' sample topics approved in ' + monthLabel(currentScope.month));
         var behind = currentDistricts.filter(function (district) { return district.gap > 0; }).length;
         write('insight-text', startedDistricts + ' of ' + currentDistricts.length + ' districts have started. ' + behind + ' are below the sample monthly target; ' + number(totals.teachers - totals.teachersStarted) + ' sample teachers have not started.');
-        updateCohort('soe');
-        write('soe-goal-label', 'Monthly goal');
-        write('soe-basis-label', 'Selected-month basis');
-        write('soe-data-status', '');
         updateCohort('other');
     }
 
@@ -345,6 +341,7 @@
         write('period-label', monthLabel(currentScope.month));
         write('scope-label', [monthLabel(currentScope.month), selectedLabel('class-filter'), selectedLabel('subject-filter'), selectedLabel('cohort-filter'), selectedLabel('district-filter')].join(' · '));
         updateMetrics(); renderDistrictChart(); renderReport(); renderMonthlyChart();
+        loadSoeCoverage();
         if (currentScope.district !== 'all') { showBlocks(currentScope.district, false); }
         else if (selectedDistrict && currentDistricts.some(function (district) { return district.name === selectedDistrict; })) { showBlocks(selectedDistrict, false); }
         else { byId('block-panel').hidden = true; }
