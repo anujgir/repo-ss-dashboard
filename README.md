@@ -10,7 +10,7 @@ The application contains the standard Home, About, and Contact pages and a Split
 
 Open `/SplitSyllabus/Index` after starting IIS Express, or use the Split Syllabus link on the Home page. The view includes a responsive sidebar, SOE/non-SOE target and achieved cards, teacher/school/geography participation, district and block charts, an approval summary, monthly trend, filters, and sample CSV export. Selecting a district name opens its block chart below.
 
-Read the [browser-readable PRD](docs/split-syllabus-prd.html) and [supplied SQL Server schema contract](docs/split-syllabus-domain.md). The new controller only returns the view; SQL queries and controller data logic are reserved for the owner's next implementation step. Every displayed count and percentage is sample data.
+Read the [browser-readable PRD](docs/split-syllabus-prd.html) and [supplied SQL Server schema contract](docs/split-syllabus-domain.md). The SOE coverage card has an MVC data endpoint and SQL Server stored procedure. Follow [SOE coverage setup](docs/soe-coverage-setup.md) to deploy [the SQL file](docs/usp_GetSoeSyllabusCoverage.sql) and configure the real connection, SOE value, and percentage basis. Missing configuration displays N/A rather than sample coverage. Other metrics remain sample data. `Index()` only loads the view, while `SoeCoverage` handles the authorized SOE data request.
 
 ## Getting Started
 

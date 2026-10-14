@@ -6,7 +6,9 @@ Source: the repository owner's supplied schema and workflow, recorded 2026-10-14
 
 Use the existing ASP.NET MVC 5 / .NET Framework 4.7.2 application, C#, Razor-generated normal HTML, local Bootstrap, custom CSS, and only necessary vanilla JavaScript. SQL Server is the eventual database. Do not introduce ASP.NET Core, React, Angular, a Node runtime, external chart services, or a database migration.
 
-Step 1 is a view prototype: `Controllers/SplitSyllabusController.cs` contains only an `Index` action returning `View()`. `Views/SplitSyllabus/Index.cshtml` renders the dashboard using a dedicated layout. Data and interactions are browser-local, clearly labeled illustrative, and do not represent real schools or teachers. Step 2, database queries, controller/services logic, authentication, and real data binding, waits for the owner's instruction.
+The original Step 1 delivered a view prototype with an `Index` action returning `View()`. `Views/SplitSyllabus/Index.cshtml` renders the dashboard using a dedicated layout. That first phase used browser-local sample data. The subsequent authorized SOE-only integration is described below; the remaining backend features still await instruction.
+
+The owner has now authorized the SOE coverage portion of Step 2. `SoeCoverage` is an asynchronous MVC GET action backed by `SoeCoverageService` and `docs/usp_GetSoeSyllabusCoverage.sql`. The SOE card requests that endpoint and does not fall back to sample values. Other cards, charts, and participation metrics remain illustrative. Read [SOE coverage setup](soe-coverage-setup.md) for required configuration and supported monthly/cumulative calculations. Deployment and live data verification require the owner's actual connection and schema settings; approval writes and other backend metrics are not authorized by this step.
 
 ## Supplied Tables and Columns
 
