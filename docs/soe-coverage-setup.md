@@ -21,6 +21,8 @@ The procedure accepts Year, Month, StateSpecificType (SOE), and optional BatchId
 
 ## Dashboard and Tests
 
-The SOE card displays the two returned averages, a gap, and a percentage bar. It supports null values as N/A, and does not show the removed topic-count text. Other metrics remain illustrative. A placeholder database connection can cause a server error; the browser clears the card and shows an unavailable response.
+Current mode: the dashboard uses dummy SOE data. The `loadSoeCoverage();` invocation is commented out; the method and controller endpoint are retained for later use. The server-response behavior described below applies when live loading is enabled again.
+
+The SOE card displays the two returned averages, a gap, and a percentage bar. For bug #58143, missing values display 0% and missing data or failed requests display "No data found". Valid percentages remain visible, including when only one value is missing. The SQL Server label and technical error text are removed from the card. The topic-count text remains removed. Other metrics remain illustrative. A placeholder connection can still cause a server error; this display fix does not configure a real database connection.
 
 Run ./tests/soe-coverage.tests.ps1 against local SQL Server to verify the actual procedure using temporary fixtures. Tests distinguish arithmetic averaging from a weighted ratio and check independent targets, scope filters, null/zero denominators, zero completions, empty results, and January year selection.

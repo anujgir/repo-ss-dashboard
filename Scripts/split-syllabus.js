@@ -105,9 +105,10 @@
     }
 
     function clearSoeCoverage(message, loading) {
-        write('soe-target', 'N/A'); write('soe-achieved', 'N/A'); write('soe-gap', 'N/A');
-        write('soe-goal-label', 'Configured goal'); write('soe-basis-label', 'SQL Server');
+        write('soe-target', '0%'); write('soe-achieved', '0%'); write('soe-gap', '0.0 pp');
+        write('soe-goal-label', 'Average monthly target');
         write('soe-data-status', message);
+        byId('soe-data-status').hidden = !message;
         byId('soe-progress').style.width = '0%';
         byId('soe-target-marker').hidden = true;
         byId('soe-card').setAttribute('aria-busy', loading ? 'true' : 'false');
@@ -133,7 +134,7 @@
             headers: { Accept: 'application/json' } })
             .then(function (response) {
                 return response.json().catch(function () {
-                    throw new Error('SOE coverage returned an unexpected response. Please retry.');
+                    throw new Error('No data found');
                 }).then(function (payload) {
                     if (!response.ok || !payload || !payload.success || !payload.data) { throw new Error(payload && payload.message || 'SOE coverage could not be loaded.'); }
                     return payload.data;
@@ -141,24 +142,24 @@
             })
             .then(function (data) {
                 if (requestVersion !== soeRequestVersion) { return; }
-                var target = data.TargetPercentage, achieved = data.AchievedPercentage;
-                write('soe-target', percent(target)); write('soe-achieved', percent(achieved));
-                write('soe-gap', target === null || achieved === null ? 'N/A' : Math.max(0, target - achieved).toFixed(1) + ' pp');
+                var hasTarget = typeof data.TargetPercentage === 'number' && Number.isFinite(data.TargetPercentage);
+                var hasAchieved = typeof data.AchievedPercentage === 'number' && Number.isFinite(data.AchievedPercentage);
+                var target = hasTarget ? data.TargetPercentage : 0;
+                var achieved = hasAchieved ? data.AchievedPercentage : 0;
+                write('soe-target', target === 0 ? '0%' : percent(target));
+                write('soe-achieved', achieved === 0 ? '0%' : percent(achieved));
+                write('soe-gap', (hasTarget && hasAchieved ? Math.max(0, target - achieved) : 0).toFixed(1) + ' pp');
                 write('soe-goal-label', 'Average monthly target');
-                write('soe-basis-label', 'Average monthly coverage');
                 byId('soe-progress').style.width = (achieved || 0) + '%';
                 byId('soe-target-marker').style.left = (target || 0) + '%';
-                byId('soe-target-marker').hidden = target === null;
+                byId('soe-target-marker').hidden = !hasTarget;
                 byId('soe-card').setAttribute('aria-busy', 'false');
-                write('soe-data-status', target === null && achieved === null ? 'No SOE coverage data found for this scope.'
-                    : target === null ? 'Average achievement loaded. No configured target found for this scope.'
-                    : achieved === null ? 'Average target loaded. No active summary rows with monthly topics found.'
-                    : 'SOE monthly averages loaded from the reporting tables.');
+                write('soe-data-status', hasTarget && hasAchieved ? '' : 'No data found');
+                byId('soe-data-status').hidden = hasTarget && hasAchieved;
             })
-            .catch(function (error) {
+            .catch(function () {
                 if (requestVersion !== soeRequestVersion) { return; }
-                clearSoeCoverage(error.name === 'AbortError' ? 'SOE coverage request timed out. Please apply filters to retry.'
-                    : error.message === 'Failed to fetch' ? 'SOE coverage could not be reached. Please retry.' : error.message, false);
+                clearSoeCoverage('No data found', false);
             })
             .finally(function () { window.clearTimeout(timeout); });
     }
@@ -193,6 +194,9 @@
         write('approved-topics-total', number(totals.completed) + ' sample topics approved in ' + monthLabel(currentScope.month));
         var behind = currentDistricts.filter(function (district) { return district.gap > 0; }).length;
         write('insight-text', startedDistricts + ' of ' + currentDistricts.length + ' districts have started. ' + behind + ' are below the sample monthly target; ' + number(totals.teachers - totals.teachersStarted) + ' sample teachers have not started.');
+        clearSoeCoverage('', false);
+        if (currentScope.cohort !== 'other') { updateCohort('soe'); }
+        write('soe-goal-label', 'Monthly goal');
         updateCohort('other');
     }
 
@@ -341,7 +345,7 @@
         write('period-label', monthLabel(currentScope.month));
         write('scope-label', [monthLabel(currentScope.month), selectedLabel('class-filter'), selectedLabel('subject-filter'), selectedLabel('cohort-filter'), selectedLabel('district-filter')].join(' · '));
         updateMetrics(); renderDistrictChart(); renderReport(); renderMonthlyChart();
-        loadSoeCoverage();
+        // loadSoeCoverage();
         if (currentScope.district !== 'all') { showBlocks(currentScope.district, false); }
         else if (selectedDistrict && currentDistricts.some(function (district) { return district.name === selectedDistrict; })) { showBlocks(selectedDistrict, false); }
         else { byId('block-panel').hidden = true; }
